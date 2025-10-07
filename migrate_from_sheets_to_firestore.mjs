@@ -3,6 +3,9 @@ import admin from "firebase-admin";
 import dotenv from "dotenv";
 dotenv.config();
 
+const args = process.argv.slice(2);
+const isDryRun = args.some(arg => ["--dry-run", "--dryrun", "--dryRun"].includes(arg));
+
 class MissingColumnsError extends Error {
   constructor(tabName, missingColumns) {
     super(
@@ -28,12 +31,18 @@ function getEnvOrThrow(name, { parser = v => v, example } = {}) {
 }
 
 // --- Firestore auth via Service Account (from GitHub Secret) ---
-const sa = getEnvOrThrow("FIREBASE_SERVICE_ACCOUNT", {
-  parser: value => JSON.parse(value),
-  example: '{"project_id":"demo"...}',
-});
-admin.initializeApp({ credential: admin.credential.cert(sa) });
-const db = admin.firestore();
+let db = null;
+
+function initFirestore() {
+  if (db) return db;
+  const sa = getEnvOrThrow("FIREBASE_SERVICE_ACCOUNT", {
+    parser: value => JSON.parse(value),
+    example: '{"project_id":"demo"...}',
+  });
+  admin.initializeApp({ credential: admin.credential.cert(sa) });
+  db = admin.firestore();
+  return db;
+}
 
 // --- Google Sheets client (API key) ---
 const googleApiKey = getEnvOrThrow("GOOGLE_API_KEY");
@@ -116,7 +125,11 @@ function mapAssignment(r){
 async function writeCollection(col, list){
   if(list.length === 0){ logW(`No data for '${col}', skip write.`); return; }
   logH(`Writing '${col}' (${list.length} docs)...`);
-  const writer = db.bulkWriter({ throttling: true });
+  if (isDryRun) {
+    logW(`[dry-run] Skip writing '${col}'. ${list.length} docs would be upserted.`);
+    return;
+  }
+  const writer = initFirestore().bulkWriter({ throttling: true });
   let done = 0;
   for(const item of list){
     const {_id, __id, ...data} = item;
@@ -137,6 +150,9 @@ async function main(){
   if(!SHEET_ID) throw new Error("Missing SHEET_ID (Google Sheet ID) in env/secrets.");
   logH("=== Google Sheet → Firestore (Multi-Sheet) ===");
   logH(`Sheet: https://docs.google.com/spreadsheets/d/${SHEET_ID}`);
+  if (isDryRun) {
+    logW("Running in dry-run mode: Firestore writes will be skipped.");
+  }
 
   // Read tabs
   const [driversRaw, assignmentsRaw, pickupRaw] = await Promise.all([
@@ -157,7 +173,11 @@ async function main(){
   await writeCollection("pickups", pickups);
   await writeCollection("assignments", assignments);
 
-  logOK("✅ All collections synced.");
+  if (isDryRun) {
+    logOK("✅ Dry run complete. No data was written to Firestore.");
+  } else {
+    logOK("✅ All collections synced.");
+  }
 }
 
 main().catch(err => { logE(err.stack || err.message); process.exit(1); });
