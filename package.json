@@ -1,0 +1,13 @@
+{
+  "name": "firestore-sync",
+  "version": "1.1.0",
+  "type": "module",
+  "scripts": {
+    "sync": "node migrate_from_sheets_to_firestore.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "googleapis": "^141.0.0",
+    "dotenv": "^16.4.5"
+  }
+}
