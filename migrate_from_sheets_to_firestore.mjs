@@ -3,6 +3,17 @@ import admin from "firebase-admin";
 import dotenv from "dotenv";
 dotenv.config();
 
+class MissingColumnsError extends Error {
+  constructor(tabName, missingColumns) {
+    super(
+      `Tab '${tabName}' is missing required columns: ${missingColumns.join(", ")}`
+    );
+    this.name = "MissingColumnsError";
+    this.tabName = tabName;
+    this.missingColumns = missingColumns;
+  }
+}
+
 function getEnvOrThrow(name, { parser = v => v, example } = {}) {
   const raw = process.env[name];
   if (!raw || !String(raw).trim()) {
@@ -40,7 +51,7 @@ function logOK(m){ console.log(`\x1b[32m${m}\x1b[0m`); }
 function logW(m){ console.log(`\x1b[33m${m}\x1b[0m`); }
 function logE(m){ console.error(`\x1b[31m${m}\x1b[0m`); }
 
-async function readTab(tabName) {
+async function readTab(tabName, requiredColumns = []) {
   try {
     const { data } = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
@@ -51,12 +62,19 @@ async function readTab(tabName) {
     const rows = data.values || [];
     if (rows.length <= 1) return [];
     const headers = rows[0].map(h => String(h || "").trim());
+    const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+    if (missingColumns.length) {
+      throw new MissingColumnsError(tabName, missingColumns);
+    }
     return rows.slice(1).map(r => {
       const obj = {};
       headers.forEach((h, i) => obj[h] = r[i] ?? "");
       return obj;
     });
   } catch (e) {
+    if (e instanceof MissingColumnsError) {
+      throw e;
+    }
     logW(`Skip '${tabName}': ${e.message}`);
     return [];
   }
@@ -122,9 +140,9 @@ async function main(){
 
   // Read tabs
   const [driversRaw, assignmentsRaw, pickupRaw] = await Promise.all([
-    readTab(TAB_DRIVERS),
-    readTab(TAB_ASSIGNMENTS),
-    readTab(TAB_PICKUP),
+    readTab(TAB_DRIVERS, ["Driver ID", "Driver Name", "IDShift", "TimeHolidayDate"]),
+    readTab(TAB_ASSIGNMENTS, ["Driver ID", "Pickup Point ID"]),
+    readTab(TAB_PICKUP, ["Group Name", "Pickup Point ID", "Pickup Point Name", "Text Address"]),
   ]);
 
   logH(`Found: drivers=${driversRaw.length}, assignments=${assignmentsRaw.length}, pickup=${pickupRaw.length}`);

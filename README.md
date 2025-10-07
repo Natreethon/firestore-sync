@@ -7,6 +7,8 @@
 - `Assignments` : ต้องมีคอลัมน์ `Driver ID`, `Pickup Point ID`
 - `Pickup` : ต้องมีคอลัมน์ `Group Name`, `Pickup Point ID`, `Pickup Point Name`, `Text Address`
 
+> ℹ️ สคริปต์จะตรวจสอบคอลัมน์ที่จำเป็นให้ครบก่อนซิงก์ หากขาดคอลัมน์ใดจะหยุดการทำงานและแจ้งชื่อคอลัมน์ที่หายไป
+
 ## ใช้กับ GitHub Actions
 1) อัปโหลดไฟล์ทั้งหมดขึ้น GitHub repo
 2) เพิ่ม Secrets ที่ Settings → Secrets → Actions
