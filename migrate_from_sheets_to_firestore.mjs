@@ -1,6 +1,9 @@
 import { google } from "googleapis";
 import admin from "firebase-admin";
 import dotenv from "dotenv";
+import { getEnvOrThrow } from "./src/env.js";
+import { mapAssignment, mapDriver, mapPickup } from "./src/mappers.js";
+
 dotenv.config();
 
 const args = process.argv.slice(2);
@@ -14,19 +17,6 @@ class MissingColumnsError extends Error {
     this.name = "MissingColumnsError";
     this.tabName = tabName;
     this.missingColumns = missingColumns;
-  }
-}
-
-function getEnvOrThrow(name, { parser = v => v, example } = {}) {
-  const raw = process.env[name];
-  if (!raw || !String(raw).trim()) {
-    const extra = example ? ` (เช่น: ${example})` : "";
-    throw new Error(`Missing required environment variable '${name}'${extra}.`);
-  }
-  try {
-    return parser(raw);
-  } catch (err) {
-    throw new Error(`Invalid value for environment variable '${name}': ${err.message}`);
   }
 }
 
@@ -87,39 +77,6 @@ async function readTab(tabName, requiredColumns = []) {
     logW(`Skip '${tabName}': ${e.message}`);
     return [];
   }
-}
-
-const toStr = v => (v == null ? "" : String(v).trim());
-
-function mapDriver(r){
-  const id = toStr(r["Driver ID"]);
-  return id ? {
-    __id: id,
-    name: toStr(r["Driver Name"]),
-    idShift: toStr(r["IDShift"]),
-    timeHolidayDate: r["TimeHolidayDate"] ?? null,
-  } : null;
-}
-
-function mapPickup(r){
-  const id = toStr(r["Pickup Point ID"]);
-  return id ? {
-    __id: id,
-    groupName: toStr(r["Group Name"]),
-    pickupPointName: toStr(r["Pickup Point Name"]),
-    textAddress: toStr(r["Text Address"]),
-  } : null;
-}
-
-function mapAssignment(r){
-  const driverId = toStr(r["Driver ID"]);
-  const pickupId = toStr(r["Pickup Point ID"]);
-  if(!driverId || !pickupId) return null;
-  return {
-    __id: `${driverId}__${pickupId}`,
-    driverId,
-    pickupPointId: pickupId,
-  };
 }
 
 async function writeCollection(col, list){
