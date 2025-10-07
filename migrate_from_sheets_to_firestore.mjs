@@ -3,17 +3,34 @@ import admin from "firebase-admin";
 import dotenv from "dotenv";
 dotenv.config();
 
+function getEnvOrThrow(name, { parser = v => v, example } = {}) {
+  const raw = process.env[name];
+  if (!raw || !String(raw).trim()) {
+    const extra = example ? ` (เช่น: ${example})` : "";
+    throw new Error(`Missing required environment variable '${name}'${extra}.`);
+  }
+  try {
+    return parser(raw);
+  } catch (err) {
+    throw new Error(`Invalid value for environment variable '${name}': ${err.message}`);
+  }
+}
+
 // --- Firestore auth via Service Account (from GitHub Secret) ---
-const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+const sa = getEnvOrThrow("FIREBASE_SERVICE_ACCOUNT", {
+  parser: value => JSON.parse(value),
+  example: '{"project_id":"demo"...}',
+});
 admin.initializeApp({ credential: admin.credential.cert(sa) });
 const db = admin.firestore();
 
 // --- Google Sheets client (API key) ---
-const sheets = google.sheets({ version: "v4", auth: process.env.GOOGLE_API_KEY });
+const googleApiKey = getEnvOrThrow("GOOGLE_API_KEY");
+const sheets = google.sheets({ version: "v4", auth: googleApiKey });
 
 // --- Config ---
 // Read entire tabs by default. You can override via env if needed.
-const SHEET_ID = process.env.SHEET_ID; // required
+const SHEET_ID = getEnvOrThrow("SHEET_ID"); // required
 const TAB_DRIVERS = process.env.TAB_DRIVERS || "Drivers";
 const TAB_ASSIGNMENTS = process.env.TAB_ASSIGNMENTS || "Assignments";
 const TAB_PICKUP = process.env.TAB_PICKUP || "Pickup";
