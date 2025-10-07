@@ -25,6 +25,12 @@ npm install
 npm run sync
 ```
 
+> ⚠️ หากรันแล้วเจอข้อความ `SyntaxError: Cannot use import statement outside a module`
+> ให้ตรวจสอบว่ารันคำสั่งจากโฟลเดอร์ที่มีไฟล์ `package.json` (ซึ่งกำหนด
+> `"type": "module"`) และใช้คำสั่ง `npm run sync` หรือ `node
+> migrate_from_sheets_to_firestore.mjs` แทน `node *.js` รวมทั้งใช้ Node.js
+> เวอร์ชัน 18 ขึ้นไป
+
 ## เขียนแบบ upsert
 สคริปต์จะ **merge** เอกสารด้วย id เดิม (ไม่ลบทิ้ง) :
 - `drivers/{Driver ID}`
